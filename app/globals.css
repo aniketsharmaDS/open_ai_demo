@@ -1,0 +1,270 @@
+@import "tailwindcss";
+
+:root {
+  /* Base colors */
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* OpenAI SDK Light Theme Colors */
+  --text-primary-light: rgba(0, 0, 0, 0.85);
+  --text-secondary-light: rgba(0, 0, 0, 0.55);
+  --text-subtle-light: rgba(0, 0, 0, 0.3);
+  --border-light: rgba(0, 0, 0, 0.1);
+  --background-light: #ffffff;
+  --background-subtle-light: #f7f7f7;
+  --background-surface-light: rgb(248, 250, 252);
+
+  /* OpenAI SDK Dark Theme Colors */
+  --text-primary-dark: rgba(255, 255, 255, 0.85);
+  --text-secondary-dark: rgba(255, 255, 255, 0.55);
+  --text-subtle-dark: rgba(255, 255, 255, 0.3);
+  --border-dark: rgba(255, 255, 255, 0.1);
+  --background-dark: #1a1a1a;
+  --background-subtle-dark: #2a2a2a;
+  --background-surface-dark: #1f1f1f;
+
+  /* Animation variables */
+  --transition-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-quick: cubic-bezier(0.4, 0, 0.6, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+
+  /* Shadow tokens */
+  --shadow-card: 0px 8px 14px rgba(0, 0, 0, 0.05);
+  --shadow-interactive: 0 10px 24px rgba(0, 0, 0, 0.1);
+  --shadow-hover: 0 20px 48px rgba(0, 0, 0, 0.15);
+
+  /* Current theme (default light) */
+  --text-primary: var(--text-primary-light);
+  --text-secondary: var(--text-secondary-light);
+  --text-subtle: var(--text-subtle-light);
+  --border: var(--border-light);
+  --bg-primary: var(--background-light);
+  --bg-subtle: var(--background-subtle-light);
+  --bg-surface: var(--background-surface-light);
+}
+
+/* Dark mode override */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+
+    /* Switch to dark theme colors */
+    --text-primary: var(--text-primary-dark);
+    --text-secondary: var(--text-secondary-dark);
+    --text-subtle: var(--text-subtle-dark);
+    --border: var(--border-dark);
+    --bg-primary: var(--background-dark);
+    --bg-subtle: var(--background-subtle-dark);
+    --bg-surface: var(--background-surface-dark);
+  }
+}
+
+/* Theme class overrides for programmatic dark mode */
+.theme-dark {
+  --text-primary: var(--text-primary-dark);
+  --text-secondary: var(--text-secondary-dark);
+  --text-subtle: var(--text-subtle-dark);
+  --border: var(--border-dark);
+  --bg-primary: var(--background-dark);
+  --bg-subtle: var(--background-subtle-dark);
+  --bg-surface: var(--background-surface-dark);
+}
+
+.theme-light {
+  --text-primary: var(--text-primary-light);
+  --text-secondary: var(--text-secondary-light);
+  --text-subtle: var(--text-subtle-light);
+  --border: var(--border-light);
+  --bg-primary: var(--background-light);
+  --bg-subtle: var(--background-subtle-light);
+  --bg-surface: var(--background-surface-light);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* OpenAI SDK Typography Hierarchy */
+.header-primary {
+  font-size: 1.5rem; /* 24px */
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+}
+
+.header-secondary {
+  font-size: 1.125rem; /* 18px */
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.body-text {
+  font-size: 1rem; /* 16px */
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.text-small {
+  font-size: 0.875rem; /* 14px */
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.text-subtle {
+  color: var(--text-subtle);
+}
+
+/* Shadows */
+.card-shadow {
+  box-shadow: var(--shadow-card);
+}
+
+.interactive-shadow {
+  box-shadow: var(--shadow-interactive);
+}
+
+.hover-shadow:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+/* Standard transitions */
+.transition-standard {
+  transition: all var(--duration-normal) var(--transition-standard);
+}
+
+.transition-quick {
+  transition: all var(--duration-fast) var(--transition-quick);
+}
+
+/* Widget container base styles */
+.widget-container {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+/* Touch target minimum sizes */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Accessibility: Focus indicators */
+.focus-visible:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Loading states */
+.loading-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-subtle) 25%,
+    var(--bg-surface) 50%,
+    var(--bg-subtle) 75%
+  );
+  background-size: 200% 100%;
+  animation: loading-shimmer 1.5s infinite;
+}
+
+@keyframes loading-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Error state colors */
+.error-bg {
+  background-color: #fee2e2;
+  border-color: #f87171;
+  color: #dc2626;
+}
+
+.dark .error-bg {
+  background-color: #450a0a;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* Success state colors */
+.success-bg {
+  background-color: #dcfce7;
+  border-color: #4ade80;
+  color: #16a34a;
+}
+
+.dark .success-bg {
+  background-color: #052e16;
+  border-color: #166534;
+  color: #86efac;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  /* Improved font rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Responsive utilities for mobile */
+@media (max-width: 768px) {
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 12px;
+  }
+
+  .mobile-text-lg .header-primary {
+    font-size: 1.25rem; /* Slightly smaller on mobile */
+  }
+
+  .mobile-text-lg .header-secondary {
+    font-size: 1rem;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --text-primary: #000000;
+    --text-secondary: #333333;
+    --border: #000000;
+  }
+
+  .dark:root {
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --border: #ffffff;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .loading-skeleton {
+    animation: none;
+    background: var(--bg-subtle);
+  }
+}
