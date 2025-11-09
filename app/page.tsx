@@ -240,7 +240,7 @@ export default function Home() {
                 </h1>
                 <ol className="font-mono list-inside list-decimal text-small space-y-2">
                   <li className="tracking-[-.01em]">
-                    ChatGPT Apps SDK Next.js Integration 117
+                    ChatGPT Apps SDK Next.js Integration 118
                   </li>
                   <li className="tracking-[-.01em]">
                     Tool result: {name ?? "Waiting for data..."}
