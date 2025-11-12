@@ -103,6 +103,68 @@ export default function ShoppingResultsPage({
   // Unwrap searchParams using React.use()
   const params = use(searchParams);
 
+  // Default stores that must always be shown
+  const defaultStoreNames = [
+    "swiggy instamart",
+    "blinkit",
+    "zepto",
+    "bbnow",
+    "dmart",
+  ];
+
+  // Helper function to ensure all default stores are present for each item
+  const ensureAllStoresForItems = (data: ShoppingResults): ShoppingResults => {
+    const normalizeStoreName = (name: string) =>
+      name.toLowerCase().replace(/\s+/g, "");
+
+    const updatedItems = data.items.map((item) => {
+      const storesMap = new Map<string, ProductInfo>();
+
+      // Add existing stores to map
+      item.stores.forEach((store) => {
+        const normalized = normalizeStoreName(store.store);
+        // Map store to default store name
+        for (const defaultStore of defaultStoreNames) {
+          const normalizedDefault = normalizeStoreName(defaultStore);
+          if (
+            normalized.includes(normalizedDefault) ||
+            normalizedDefault.includes(normalized)
+          ) {
+            storesMap.set(defaultStore, store);
+            break;
+          }
+        }
+      });
+
+      // Add missing default stores
+      const allStores: ProductInfo[] = [];
+      defaultStoreNames.forEach((storeName) => {
+        if (storesMap.has(storeName)) {
+          allStores.push(storesMap.get(storeName)!);
+        } else {
+          // Create placeholder for missing store
+          allStores.push({
+            store: storeName,
+            name: item.item,
+            price: "N/A",
+            availability: "Not Available",
+            url: "#",
+          });
+        }
+      });
+
+      return {
+        ...item,
+        stores: allStores,
+      };
+    });
+
+    return {
+      ...data,
+      items: updatedItems,
+    };
+  };
+
   useEffect(() => {
     // Set initial loading state
     setLoading(true);
@@ -126,7 +188,7 @@ export default function ShoppingResultsPage({
       ) {
         // Wait for loading stages to show for better UX
         const dataTimer = setTimeout(() => {
-          setResults(toolOutput.widgetResults!);
+          setResults(ensureAllStoresForItems(toolOutput.widgetResults!));
           setLoading(false);
         }, 1800);
 
@@ -152,7 +214,7 @@ export default function ShoppingResultsPage({
         // Validate that we have proper data before hiding loader
         if (parsedData && parsedData.items && parsedData.items.length > 0) {
           const dataTimer = setTimeout(() => {
-            setResults(parsedData);
+            setResults(ensureAllStoresForItems(parsedData));
             setLoading(false);
           }, 1600);
 
@@ -189,7 +251,7 @@ export default function ShoppingResultsPage({
         windowResults.items.length > 0
       ) {
         const dataTimer = setTimeout(() => {
-          setResults(windowResults);
+          setResults(ensureAllStoresForItems(windowResults));
           setLoading(false);
         }, 1200);
 
@@ -267,7 +329,7 @@ export default function ShoppingResultsPage({
           timestamp: new Date().toISOString(),
         };
 
-        setResults(mockResults);
+        setResults(ensureAllStoresForItems(mockResults));
         setLoading(false);
       }
     }, 2000); // Minimum 2 seconds of loading for better UX
@@ -710,30 +772,45 @@ export default function ShoppingResultsPage({
 
                             {/* Action button */}
                             <div className="pt-3">
-                              <a
-                                href={store.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`
-                                  w-full bg-blue-600 text-white font-medium text-center block rounded-md transition-quick touch-target
-                                  ${
-                                    isPip
-                                      ? "text-xs py-1 px-2"
-                                      : "text-sm py-2 px-4"
-                                  }
-                                  ${
-                                    supportsHover
-                                      ? "hover:bg-blue-700 hover:scale-105"
-                                      : "active:bg-blue-700 active:scale-95"
-                                  }
-                                  focus-visible
-                                `}
-                                {...(supportsTouch && {
-                                  onTouchStart: () => {},
-                                })}
-                              >
-                                View on {store.store}
-                              </a>
+                              {store.availability === "Not Available" ||
+                              store.url === "#" ? (
+                                <button
+                                  disabled
+                                  className={`
+                                    w-full bg-gray-300 text-gray-500 font-medium text-center block rounded-md cursor-not-allowed
+                                    ${
+                                      isPip
+                                        ? "text-xs py-1 px-2"
+                                        : "text-sm py-2 px-4"
+                                    }
+                                    ${supportsTouch ? "touch-target" : ""}
+                                  `}
+                                >
+                                  Not Available
+                                </button>
+                              ) : (
+                                <a
+                                  href={store.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`
+                                    w-full bg-blue-600 text-white font-medium text-center block rounded-md transition-quick touch-target
+                                    ${
+                                      isPip
+                                        ? "text-xs py-1 px-2"
+                                        : "text-sm py-2 px-4"
+                                    }
+                                    ${
+                                      supportsHover
+                                        ? "hover:bg-blue-700 active:scale-95"
+                                        : ""
+                                    }
+                                    focus-visible
+                                  `}
+                                >
+                                  View Product
+                                </a>
+                              )}
                             </div>
                           </div>
                         </div>

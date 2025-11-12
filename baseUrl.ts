@@ -1,5 +1,5 @@
 // export const baseURL = "https://openai-app-sdk-demo.vercel.app";
-export const baseURL = "https://open-ai-demo-mqh8.vercel.app/";
+export const baseURL = "https://open-ai-demo-mqh8.vercel.app";
 
 // export const baseURL = "https://w76qtwhz-3000.inc1.devtunnels.ms";
 

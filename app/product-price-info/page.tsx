@@ -87,21 +87,36 @@ export default function ProductInfoPage({
       "ProductInfoPage: ToolOutput keys:",
       toolOutput ? Object.keys(toolOutput) : "null"
     );
-    
+
     // Log detailed structure
     if (toolOutput) {
       console.log("📊 Detailed toolOutput structure:");
       console.log("  - Has 'stores':", !!(toolOutput as any).stores);
-      console.log("  - Has 'widgetResults':", !!(toolOutput as any).widgetResults);
-      console.log("  - Has 'structuredContent':", !!(toolOutput as any).structuredContent);
-      
+      console.log(
+        "  - Has 'widgetResults':",
+        !!(toolOutput as any).widgetResults
+      );
+      console.log(
+        "  - Has 'structuredContent':",
+        !!(toolOutput as any).structuredContent
+      );
+
       if ((toolOutput as any).widgetResults) {
-        console.log("  - widgetResults.stores:", !!(toolOutput as any).widgetResults.stores);
-        console.log("  - widgetResults keys:", Object.keys((toolOutput as any).widgetResults));
+        console.log(
+          "  - widgetResults.stores:",
+          !!(toolOutput as any).widgetResults.stores
+        );
+        console.log(
+          "  - widgetResults keys:",
+          Object.keys((toolOutput as any).widgetResults)
+        );
       }
-      
+
       if ((toolOutput as any).structuredContent) {
-        console.log("  - structuredContent keys:", Object.keys((toolOutput as any).structuredContent));
+        console.log(
+          "  - structuredContent keys:",
+          Object.keys((toolOutput as any).structuredContent)
+        );
       }
     }
     console.log("=".repeat(80));
@@ -372,14 +387,75 @@ export default function ProductInfoPage({
     })),
   });
 
+  // Default stores that must always be shown
+  const defaultStoreNames = [
+    "swiggy instamart",
+    "blinkit",
+    "zepto",
+    "bbnow",
+    "dmart",
+  ];
+
+  // Ensure all 5 default stores are present
+  const ensureAllStores = (stores: StoreResult[]): StoreResult[] => {
+    const normalizeStoreName = (name: string) =>
+      name.toLowerCase().replace(/\s+/g, "");
+    const storesMap = new Map<string, StoreResult>();
+
+    // Add existing stores to map
+    stores.forEach((store) => {
+      const normalized = normalizeStoreName(store.store);
+      // Map store to default store name
+      for (const defaultStore of defaultStoreNames) {
+        const normalizedDefault = normalizeStoreName(defaultStore);
+        if (
+          normalized.includes(normalizedDefault) ||
+          normalizedDefault.includes(normalized)
+        ) {
+          storesMap.set(defaultStore, store);
+          break;
+        }
+      }
+    });
+
+    // Add missing default stores
+    const result: StoreResult[] = [];
+    defaultStoreNames.forEach((storeName) => {
+      if (storesMap.has(storeName)) {
+        result.push(storesMap.get(storeName)!);
+      } else {
+        // Create placeholder for missing store
+        result.push({
+          store: storeName,
+          products: [],
+          allProducts: [],
+          itemsAvailable: 0,
+          totalItemsSearched: searchedItems.length,
+          completenessScore: 0,
+          hasAllItems: false,
+          availableItems: [],
+          totalCartPrice: 0,
+          cartUrls: [],
+          storeHomepage: "#",
+          averageItemPrice: 0,
+        });
+      }
+    });
+
+    return result;
+  };
+
   // Calculate savings properly - find max price among stores that have items
-  const storesWithItems = results.stores.filter((s) => s.itemsAvailable > 0);
+  const storesWithAllDefaults = ensureAllStores(results.stores);
+  const storesWithItems = storesWithAllDefaults.filter(
+    (s) => s.itemsAvailable > 0
+  );
   const maxPrice =
     storesWithItems.length > 0
       ? Math.max(...storesWithItems.map((s) => s.totalCartPrice))
       : 0;
 
-  const stores = results.stores.slice(0, 5).map((s) => ({
+  const stores = storesWithAllDefaults.slice(0, 5).map((s) => ({
     ...s,
     savings:
       s.itemsAvailable > 0 ? Math.max(0, maxPrice - s.totalCartPrice) : 0,
@@ -441,14 +517,28 @@ export default function ProductInfoPage({
               {/* Total Price */}
               <tr className="bg-[#C5D9F1]">
                 <td className="py-3 font-semibold text-gray-800">Total</td>
-                {stores.map((s, i) => (
-                  <td key={i} className="py-3 text-gray-800">
-                    <div className="text-lg font-bold">₹{s.totalCartPrice}</div>
-                    <div className="text-xs font-medium">
-                      {s.itemsAvailable} ITEMS
-                    </div>
-                  </td>
-                ))}
+                {stores.map((s, i) => {
+                  const isPlaceholderStore =
+                    s.itemsAvailable === 0 && s.totalCartPrice === 0;
+                  return (
+                    <td key={i} className="py-3 text-gray-800">
+                      {isPlaceholderStore ? (
+                        <div className="text-sm text-gray-500 font-medium">
+                          N/A
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-lg font-bold">
+                            ₹{s.totalCartPrice}
+                          </div>
+                          <div className="text-xs font-medium">
+                            {s.itemsAvailable} ITEMS
+                          </div>
+                        </>
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
 
               {/* Savings */}
@@ -532,6 +622,10 @@ export default function ProductInfoPage({
                       const isAvailable =
                         product && product.inStock && product.price > 0;
 
+                      // Check if this is a placeholder store (no items at all)
+                      const isPlaceholderStore =
+                        s.itemsAvailable === 0 && s.totalCartPrice === 0;
+
                       return (
                         <td key={j} className="py-3">
                           {isAvailable ? (
@@ -573,9 +667,19 @@ export default function ProductInfoPage({
                             </div>
                           ) : (
                             <div className="text-xs text-gray-400 leading-tight">
-                              Out of
-                              <br />
-                              stock
+                              {isPlaceholderStore ? (
+                                <>
+                                  Not
+                                  <br />
+                                  Available
+                                </>
+                              ) : (
+                                <>
+                                  Out of
+                                  <br />
+                                  stock
+                                </>
+                              )}
                             </div>
                           )}
                         </td>
@@ -590,31 +694,39 @@ export default function ProductInfoPage({
                 <td className="py-3 text-gray-800 font-semibold">
                   Store Links
                 </td>
-                {stores.map((s, i) => (
-                  <td key={i} className="py-3">
-                    <a
-                      href={s.storeHomepage}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center bg-[#4A90E2] hover:bg-[#3b7fcf] text-white rounded-md w-8 h-8"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-4 h-4"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
-                    </a>
-                  </td>
-                ))}
+                {stores.map((s, i) => {
+                  const isPlaceholderStore =
+                    s.storeHomepage === "#" || s.itemsAvailable === 0;
+                  return (
+                    <td key={i} className="py-3">
+                      {isPlaceholderStore ? (
+                        <span className="text-xs text-gray-400">N/A</span>
+                      ) : (
+                        <a
+                          href={s.storeHomepage}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center bg-[#4A90E2] hover:bg-[#3b7fcf] text-white rounded-md w-8 h-8"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                            className="w-4 h-4"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            />
+                          </svg>
+                        </a>
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             </tbody>
           </table>

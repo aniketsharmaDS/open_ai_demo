@@ -2,7 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const AuthToken =
-  "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjU0NTEzMjA5OWFkNmJmNjEzODJiNmI0Y2RlOWEyZGZlZDhjYjMwZjAiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiQW5pa2V0IFNoYXJtYSIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLaTVsc3gzSGprczlOdV93TmZ0Q2EzblotTzR3OGp4UW1CajBrcmZzRllhbkZDanc9czk2LWMiLCJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdG9sbW9sLWY3ZTQwIiwiYXVkIjoidG9sbW9sLWY3ZTQwIiwiYXV0aF90aW1lIjoxNzYyNzAyNDc2LCJ1c2VyX2lkIjoiZ0ltSHdYeGlOb1Mza2JNODZETnVmeHd1UGdHMyIsInN1YiI6ImdJbUh3WHhpTm9TM2tiTTg2RE51Znh3dVBnRzMiLCJpYXQiOjE3NjI4NDg4NTgsImV4cCI6MTc2Mjg1MjQ1OCwiZW1haWwiOiJhbmlrZXQuc2hhcm1hQGRpZ2l0YWxzYWx0LmluIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZ29vZ2xlLmNvbSI6WyIxMDAxODMyODA2MjkzOTUyNzU5NjkiXSwiZW1haWwiOlsiYW5pa2V0LnNoYXJtYUBkaWdpdGFsc2FsdC5pbiJdfSwic2lnbl9pbl9wcm92aWRlciI6Imdvb2dsZS5jb20ifX0.pTCUsOUAzmhRYmT0WKGfWfArTXMhxl2gU_XDvLdG9IB78vMu2lbSLfVxxRspMTNqHTofnVua2ekGiC-PD61vChcvWBmdHCSGYVoPtbxtRMW2DydGQGWEVrSXUjTYQoq-_X4RXQngYnTNqzV3CXubeZgxU1A_7MnMSlxZ4yFdnxWz1t40eZktTHZTlLtY2QG7ieu7T9Wur1fAnMd9YMIpQSB2549D1OTij78nowhB8Y1-kuTOvJTWuyRctYs3PokN3f2MLOBnwvc_xh877CD9a0MlhCAzkC2ACJx4X8aZ1OjEccRoMf0zXiAZDca8u1koaKkv9zwbPcq_g-kI1p7AmA";
+  "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjM4MDI5MzRmZTBlZWM0NmE1ZWQwMDA2ZDE0YTFiYWIwMWUzNDUwODMiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiQW5pa2V0IFNoYXJtYSIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLaTVsc3gzSGprczlOdV93TmZ0Q2EzblotTzR3OGp4UW1CajBrcmZzRllhbkZDanc9czk2LWMiLCJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdG9sbW9sLWY3ZTQwIiwiYXVkIjoidG9sbW9sLWY3ZTQwIiwiYXV0aF90aW1lIjoxNzYyNzAyNDc2LCJ1c2VyX2lkIjoiZ0ltSHdYeGlOb1Mza2JNODZETnVmeHd1UGdHMyIsInN1YiI6ImdJbUh3WHhpTm9TM2tiTTg2RE51Znh3dVBnRzMiLCJpYXQiOjE3NjI5NDEyMzksImV4cCI6MTc2Mjk0NDgzOSwiZW1haWwiOiJhbmlrZXQuc2hhcm1hQGRpZ2l0YWxzYWx0LmluIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZ29vZ2xlLmNvbSI6WyIxMDAxODMyODA2MjkzOTUyNzU5NjkiXSwiZW1haWwiOlsiYW5pa2V0LnNoYXJtYUBkaWdpdGFsc2FsdC5pbiJdfSwic2lnbl9pbl9wcm92aWRlciI6Imdvb2dsZS5jb20ifX0.Xz4HRTNzlXvbH7E1-oWXSnLF7u5tALkPFZCiugTPo3-HTfYwPA0LBm4SLYGp4XssxlqE7pcq0H2iwU2ovkFD8pnyBORnyUrZzzrXZyaYEmqOG9knhAdvsYqZ7QRoxLX9HG2w6a9LxCb02m5RbtRXW3WmQwfp5xGa1EA4B7aj6Eo2eO9hHPVAZsrQ09CkTlc_QeNV_7P4PvwqDoNFOXemH3O5WvvynbKTGrpOH5wS5cgElg90Co3mu4b_eABAUqymqGis6OusaDvgh_2P2PMHD_EUwstDKOogMi-OzSXCe7EKoRCZCeWdRRxEK6uaXHRftHgxXCITAqs24YQC0tSTHA";
+
+// Default stores that should always be included in results
+const DEFAULT_STORES = [
+  "swiggy instamart",
+  "blinkit",
+  "zepto",
+  "bbnow",
+  "dmart",
+];
+
+// TypeScript interfaces for better type safety
 // TypeScript interfaces for better type safety
 interface GeocodeResult {
   place_id: number;
@@ -96,6 +107,53 @@ const fetchProductPriceInfo = async (
   };
 
   const normalize = (s: any) => (s ? String(s).toLowerCase() : "");
+
+  // Helper function to normalize store names for comparison
+  const normalizeStoreName = (storeName: string): string => {
+    return storeName.toLowerCase().replace(/\s+/g, "").trim();
+  };
+
+  // Helper function to ensure all default stores are present in results
+  const ensureAllStores = (groups: any[]): any[] => {
+    const storesFound = new Set<string>();
+
+    // Track which stores we've found
+    groups.forEach((group: any[]) => {
+      if (Array.isArray(group) && group.length > 0) {
+        const storeName = normalize(
+          group[0].store || group[0].source || group[0].retailer || ""
+        );
+        DEFAULT_STORES.forEach((defaultStore) => {
+          const normalizedDefault = normalizeStoreName(defaultStore);
+          if (
+            storeName.includes(normalizedDefault) ||
+            normalizedDefault.includes(storeName)
+          ) {
+            storesFound.add(defaultStore);
+          }
+        });
+      }
+    });
+
+    // Add missing stores with empty product arrays
+    const result = [...groups];
+    DEFAULT_STORES.forEach((store) => {
+      if (!storesFound.has(store)) {
+        // Add a placeholder group for the missing store
+        result.push([
+          {
+            store: store,
+            name: "Product not available",
+            available: false,
+            price: null,
+            message: `This product is not available at ${store}`,
+          },
+        ]);
+      }
+    });
+
+    return result;
+  };
 
   try {
     const apiKey = "6900978dc9f28933450103qhj0eb6f7";
@@ -275,7 +333,10 @@ const fetchProductPriceInfo = async (
           ...matchedGroups.map((m) => m.group),
           ...otherGroups,
         ];
-        reordered.forEach((g) => matches.push(g));
+
+        // Ensure all default stores are present
+        const withAllStores = ensureAllStores(reordered);
+        withAllStores.forEach((g) => matches.push(g));
       }
 
       return { searchItem: searchQuery, matches, error: null };
