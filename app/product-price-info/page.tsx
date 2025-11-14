@@ -615,12 +615,17 @@ export default function ProductInfoPage({
                           name: product.name,
                           price: product.price,
                           inStock: product.inStock,
+                          notFound: (product as any).notFound,
                           url: product.url,
                         });
                       }
 
+                      const isNotFound = product && (product as any).notFound;
                       const isAvailable =
-                        product && product.inStock && product.price > 0;
+                        product &&
+                        product.inStock &&
+                        product.price > 0 &&
+                        !isNotFound;
 
                       // Check if this is a placeholder store (no items at all)
                       const isPlaceholderStore =
@@ -667,7 +672,13 @@ export default function ProductInfoPage({
                             </div>
                           ) : (
                             <div className="text-xs text-gray-400 leading-tight">
-                              {isPlaceholderStore ? (
+                              {isNotFound ? (
+                                <>
+                                  Not
+                                  <br />
+                                  Found
+                                </>
+                              ) : isPlaceholderStore ? (
                                 <>
                                   Not
                                   <br />

@@ -3,6 +3,308 @@ import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import { fetchWeatherApi } from "openmeteo";
 
+// Auth token for Tolmol API
+const AuthToken =
+  "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjM4MDI5MzRmZTBlZWM0NmE1ZWQwMDA2ZDE0YTFiYWIwMWUzNDUwODMiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiQW5pa2V0IFNoYXJtYSIsInBpY3R1cmUiOiJodHRwczovL2xoMy5nb29nbGV1c2VyY29udGVudC5jb20vYS9BQ2c4b2NLaTVsc3gzSGprczlOdV93TmZ0Q2EzblotTzR3OGp4UW1CajBrcmZzRllhbkZDanc9czk2LWMiLCJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vdG9sbW9sLWY3ZTQwIiwiYXVkIjoidG9sbW9sLWY3ZTQwIiwiYXV0aF90aW1lIjoxNzYyNzAyNDc2LCJ1c2VyX2lkIjoiZ0ltSHdYeGlOb1Mza2JNODZETnVmeHd1UGdHMyIsInN1YiI6ImdJbUh3WHhpTm9TM2tiTTg2RE51Znh3dVBnRzMiLCJpYXQiOjE3NjMxMTQzOTcsImV4cCI6MTc2MzExNzk5NywiZW1haWwiOiJhbmlrZXQuc2hhcm1hQGRpZ2l0YWxzYWx0LmluIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZ29vZ2xlLmNvbSI6WyIxMDAxODMyODA2MjkzOTUyNzU5NjkiXSwiZW1haWwiOlsiYW5pa2V0LnNoYXJtYUBkaWdpdGFsc2FsdC5pbiJdfSwic2lnbl9pbl9wcm92aWRlciI6Imdvb2dsZS5jb20ifX0.YNxR6n38243lM198uNpKxCKr2KSGFA7yq9EwnmTT7CVBGOqTwwpbdHJTP-WRLwA55DnRMY97ZbyXrw7b8Q4_AuyMisBljp40z7JV6NFbtVm-jdZJXbA65DFS0b1u3riwA2be0JJu7YEPnos5aNdRvjVTkTfeWn5It18au4QxmpXCTDmJ9Ipi2xXhe86EPHiSgY6CdQsfcc1qG4tGxw5KGnTK7vDG7sOLUiSaV49HYKlnNb0M_c11XWaA9WkjFGwHnl-cuaNJ7SMMBx1EccjtPCCau06i7oUmXkFJ_id8xAAHuINDqO2ljzg4k4wGjLiD8iNSBizdoinkzEzJDu5Q2g";
+
+// Default stores that should always be included in results
+const DEFAULT_STORES = [
+  "swiggy instamart",
+  "blinkit",
+  "zepto",
+  "bbnow",
+  "dmart",
+];
+
+// TypeScript interfaces for geocoding
+interface GeocodeResult {
+  place_id: number;
+  lat: string;
+  lon: string;
+  name: string;
+  display_name: string;
+  address: {
+    city?: string;
+    state?: string;
+    country?: string;
+    country_code?: string;
+  };
+}
+
+// Structured item interface
+interface StructuredItem {
+  size?: string;
+  brand_name?: string;
+  product_name: string;
+  query?: string;
+}
+
+// Helper function to normalize strings for comparison
+const normalize = (s: any): string => {
+  return s ? String(s).toLowerCase().trim() : "";
+};
+
+// Helper function to normalize store names
+const normalizeStoreName = (storeName: string): string => {
+  return storeName.toLowerCase().replace(/\s+/g, "").trim();
+};
+
+// Main filtering function - uses strict brand -> size -> product_name filtering
+// Optimized for speed with parallel processing and caching
+const filterProducts = async (
+  items: StructuredItem[],
+  location: string = "Mumbai"
+) => {
+  try {
+    // Step 1: Geocode the location (cached for subsequent calls)
+    const apiKey = "6900978dc9f28933450103qhj0eb6f7";
+    const encodedLocation = encodeURIComponent(location);
+    const geocodeUrl = `https://geocode.maps.co/search?q=${encodedLocation}&api_key=${apiKey}`;
+
+    const geocodeResponse = await fetch(geocodeUrl);
+    if (!geocodeResponse.ok)
+      throw new Error(`Geocoding API error: ${geocodeResponse.status}`);
+
+    const geocodeData: GeocodeResult[] = await geocodeResponse.json();
+    if (!geocodeData || geocodeData.length === 0)
+      throw new Error(`No location found for "${location}"`);
+
+    const { lat, lon } = geocodeData[0];
+    const coordinates = { lat: parseFloat(lat), long: parseFloat(lon) };
+
+    // Step 2: Fetch raw data for ALL items in parallel with timeout
+    const rawApiResults = await Promise.all(
+      items.map(async (item) => {
+        try {
+          // Construct search query from structured item
+          const searchParts = [];
+          if (item.size) searchParts.push(item.size);
+          if (item.brand_name) searchParts.push(item.brand_name);
+          searchParts.push(item.product_name);
+          if (item.query) searchParts.push(item.query);
+
+          const searchQuery = searchParts.join(" ").trim();
+
+          const apiUrl = `https://tolmol-api.prod.shelfradar.ai/api/v4/aggregate?q=${encodeURIComponent(
+            searchQuery
+          )}&lat=${lat}&long=${lon}`;
+
+          // Add timeout to prevent hanging
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
+          const response = await fetch(apiUrl, {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "Product-Price-Info-Tool/1.0",
+              Authorization: AuthToken,
+            },
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            return {
+              searchItem: item,
+              rawData: null,
+              error: `API request failed: ${response.status}`,
+            };
+          }
+
+          const data = await response.json();
+          return { searchItem: item, rawData: data, error: null };
+        } catch (err) {
+          return {
+            searchItem: item,
+            rawData: null,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      })
+    );
+
+    // Step 3: Filter products using optimized strict filtering logic
+    const processedResults = rawApiResults.map((r) => {
+      const { searchItem, rawData, error } = r;
+
+      const searchQuery = `${searchItem.size || ""} ${
+        searchItem.brand_name || ""
+      } ${searchItem.product_name}`.trim();
+
+      if (error || !rawData)
+        return { searchItem: searchQuery, matches: [], error, notFound: true };
+
+      // Pre-normalize filters once
+      const brandFilter = normalize(searchItem.brand_name || "");
+      const sizeFilter = normalize(searchItem.size || "").replace(/\s+/g, "");
+      const productFilter = normalize(searchItem.product_name);
+
+      let matchedGroups: any[] = [];
+
+      if (Array.isArray(rawData.products)) {
+        // Optimized: Single-pass filtering instead of multiple passes
+        matchedGroups = rawData.products.filter((group: any[]) => {
+          if (!Array.isArray(group)) return false;
+
+          return group.some((product) => {
+            // Brand check (if specified)
+            if (brandFilter) {
+              const prodBrand = normalize(
+                product.brand || product.manufacturer || ""
+              );
+              const brandMatch =
+                prodBrand.includes(brandFilter) ||
+                brandFilter.includes(prodBrand);
+              if (!brandMatch) return false;
+            }
+
+            // Size check (if specified)
+            if (sizeFilter) {
+              const prodSize = normalize(
+                product.size || product.package || product.pack || ""
+              ).replace(/\s+/g, "");
+              const sizeMatch =
+                prodSize.includes(sizeFilter) || sizeFilter.includes(prodSize);
+              if (!sizeMatch) return false;
+            }
+
+            // Product name check (required)
+            const prodName = normalize(
+              product.name || product.title || product.product_name || ""
+            );
+            const prodBrand = normalize(
+              product.brand || product.manufacturer || ""
+            );
+            const combined = `${prodBrand} ${prodName}`.trim();
+
+            return (
+              combined.includes(productFilter) ||
+              prodName.includes(productFilter)
+            );
+          });
+        });
+
+        // Early return if no matches found
+        if (matchedGroups.length === 0) {
+          let errorMsg = `No products found matching "${searchQuery}"`;
+          if (brandFilter)
+            errorMsg = `No products found with brand "${searchItem.brand_name}"`;
+          else if (sizeFilter)
+            errorMsg = `No products found with size "${searchItem.size}"`;
+
+          return {
+            searchItem: searchQuery,
+            matches: [],
+            error: errorMsg,
+            notFound: true,
+          };
+        }
+      }
+
+      return {
+        searchItem: searchQuery,
+        matches: matchedGroups,
+        error: null,
+        notFound: false,
+      };
+    });
+
+    // Step 4: Ensure all default stores are present
+    const ensureAllStores = (processedResults: any[]): any[] => {
+      return processedResults.map((result) => {
+        if (result.notFound || !result.matches || result.matches.length === 0) {
+          // For not found items, create placeholder for all 5 stores
+          const placeholderMatches = [
+            DEFAULT_STORES.map((storeName) => ({
+              store: storeName,
+              platform: storeName,
+              name: result.searchItem,
+              price: 0,
+              in_stock: false,
+              url: "#",
+              availability: "Not Found",
+              notFound: true,
+            })),
+          ];
+
+          return {
+            ...result,
+            matches: placeholderMatches,
+          };
+        }
+
+        // For found items, ensure all 5 stores are present
+        const storeMap = new Map<string, any>();
+
+        // Collect products by store
+        result.matches.forEach((group: any[]) => {
+          if (Array.isArray(group)) {
+            group.forEach((product) => {
+              const storeName = normalize(
+                product.platform || product.store || ""
+              );
+              // Map to default store names
+              for (const defaultStore of DEFAULT_STORES) {
+                const normalizedDefault = normalizeStoreName(defaultStore);
+                if (
+                  storeName.includes(normalizedDefault) ||
+                  normalizedDefault.includes(storeName)
+                ) {
+                  if (!storeMap.has(defaultStore)) {
+                    storeMap.set(defaultStore, []);
+                  }
+                  storeMap.get(defaultStore)!.push(product);
+                  break;
+                }
+              }
+            });
+          }
+        });
+
+        // Create a complete group with all 5 stores
+        const completeGroup: any[] = [];
+        DEFAULT_STORES.forEach((storeName) => {
+          if (storeMap.has(storeName)) {
+            // Add the first product from this store
+            completeGroup.push(storeMap.get(storeName)![0]);
+          } else {
+            // Add placeholder for missing store
+            completeGroup.push({
+              store: storeName,
+              platform: storeName,
+              name: result.searchItem,
+              price: 0,
+              in_stock: false,
+              url: "#",
+              availability: "Out of Stock",
+              notFound: false,
+            });
+          }
+        });
+
+        return {
+          ...result,
+          matches: [completeGroup], // Return single group with all 5 stores
+        };
+      });
+    };
+
+    const finalResults = ensureAllStores(processedResults);
+
+    return {
+      location,
+      coordinates,
+      processedResults: finalResults,
+      totalItems: items.length,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (err) {
+    throw err;
+  }
+};
+
 // Enhanced getAppsSdkCompatibleHtml function that can inject data
 const getAppsSdkCompatibleHtmlWithData = async (
   baseUrl: string,
@@ -513,37 +815,9 @@ const handler = createMcpHandler(async (server) => {
     },
     async ({ items, location = "Mumbai" }) => {
       try {
-        // Call our new pattern-based API endpoint
-        const apiResponse = await fetch(`${baseURL}/api/product-price-info`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            items,
-            location,
-          }),
-        });
-
-        if (!apiResponse.ok) {
-          throw new Error(`API request failed: ${apiResponse.status}`);
-        }
-
-        const apiData = await apiResponse.json();
-        console.log(
-          "Pattern-based API Response:",
-          JSON.stringify(apiData, null, 2)
-        );
-
-        if (!apiData.success || !apiData.data) {
-          throw new Error(apiData.error || "API returned no data");
-        }
-
-        const { coordinates, processedResults } = apiData.data;
-        console.log("🔍 Processing results:", {
-          processedResultsCount: processedResults.length,
-          coordinatesReceived: !!coordinates,
-        });
+        // Use the new filtering function directly (no API call)
+        const { coordinates, processedResults, totalItems } =
+          await filterProducts(items, location);
 
         // Transform the data into the store-based structure that the UI expects
         const storeGroups: { [storeName: string]: any[] } = {};
@@ -556,17 +830,9 @@ const handler = createMcpHandler(async (server) => {
               : null;
 
           if (bestMatch && Array.isArray(bestMatch) && bestMatch.length > 0) {
-            // Take ALL products from the best matching group (across all stores)
+            // Process ALL products from the filtered group (across all stores)
             bestMatch.forEach((product: any) => {
               const storeName = product.platform || "Unknown Store";
-
-              console.log(`🔍 Processing product for ${result.searchItem}:`, {
-                name: product.name,
-                platform: storeName,
-                price: product.price,
-                in_stock: product.in_stock,
-                url: product.url,
-              });
 
               if (!storeGroups[storeName]) {
                 storeGroups[storeName] = [];
@@ -579,11 +845,7 @@ const handler = createMcpHandler(async (server) => {
                 originalPrice: product.original_price || product.price || 0,
                 discount: product.discount || 0,
                 platform: storeName,
-                inStock:
-                  product.in_stock === true ||
-                  product.in_stock === undefined ||
-                  product.in_stock === null ||
-                  product.price > 0,
+                inStock: product.in_stock === true && product.price > 0,
                 url: product.url || "#",
                 image:
                   product.image || (product.images && product.images[0]) || "",
@@ -593,9 +855,14 @@ const handler = createMcpHandler(async (server) => {
                 unit: product.unit || "",
                 rating: product.rating || null,
                 reviews: product.reviews || null,
-                availability: product.availability || "Available",
+                availability: product.notFound
+                  ? "Not Found"
+                  : product.in_stock
+                  ? "In Stock"
+                  : "Out of Stock",
                 productId: product.id || product.product_id || "",
                 searchedItem: result.searchItem,
+                notFound: product.notFound || false,
               });
             });
           }
@@ -604,10 +871,13 @@ const handler = createMcpHandler(async (server) => {
         // Convert store groups to the format expected by the UI
         const storeResults = Object.entries(storeGroups).map(
           ([storeName, products]) => {
-            const uniqueItemsInStore = new Set(
-              products.map((p) => p.searchedItem)
+            const availableProducts = products.filter(
+              (p) => !p.notFound && p.inStock && p.price > 0
             );
-            const totalCartPrice = products.reduce(
+            const uniqueItemsInStore = new Set(
+              availableProducts.map((p) => p.searchedItem)
+            );
+            const totalCartPrice = availableProducts.reduce(
               (sum, p) => sum + (p.price || 0),
               0
             );
@@ -621,15 +891,14 @@ const handler = createMcpHandler(async (server) => {
               storeHomepage = "https://blinkit.com";
             } else if (
               lowerStoreName.includes("bigbasket") ||
-              lowerStoreName.includes("bb")
+              lowerStoreName.includes("bb") ||
+              lowerStoreName.includes("bbnow")
             ) {
               storeHomepage = "https://www.bigbasket.com";
             } else if (lowerStoreName.includes("zepto")) {
               storeHomepage = "https://www.zepto.com";
-            } else if (lowerStoreName.includes("amazon")) {
-              storeHomepage = "https://www.amazon.in";
-            } else if (lowerStoreName.includes("flipkart")) {
-              storeHomepage = "https://www.flipkart.com";
+            } else if (lowerStoreName.includes("dmart")) {
+              storeHomepage = "https://www.dmart.in";
             }
 
             return {
@@ -677,9 +946,14 @@ const handler = createMcpHandler(async (server) => {
               result.matches && result.matches.length > 0
                 ? result.matches[0]
                 : [],
-            totalFound: result.matches ? result.matches.length : 0,
+            totalFound: result.notFound
+              ? 0
+              : result.matches
+              ? result.matches.length
+              : 0,
             searchQuery: result.searchItem,
             error: result.error,
+            notFound: result.notFound,
           })),
           stores: storeResults,
           totalItems: items.length,
